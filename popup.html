@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Currency to VND</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="panel">
+    <header>
+      <div class="logo">₫</div>
+      <div>
+        <h1>Currency to VND</h1>
+        <p class="subtitle">Quy đổi nhiều tiền tệ sang VND</p>
+      </div>
+    </header>
+
+    <label class="toggle-row">
+      <span>
+        <strong>Tự động quy đổi</strong>
+        <small>Thêm giá VND bên cạnh giá gốc</small>
+      </span>
+      <input id="enabled" type="checkbox">
+    </label>
+
+    <section class="rate-card">
+      <div class="rate-heading">Tỉ giá</div>
+      <div class="rate-line" aria-live="polite">
+        <input id="rateAmount" type="number" min="0.000001" step="any" value="1" aria-label="Số tiền gốc">
+        <span id="rateCurrency">Đang nhận diện...</span>
+        <span class="approx-symbol">≈</span>
+        <strong id="rateConverted">...</strong>
+      </div>
+      <div id="updated" class="updated"></div>
+      <button id="refresh" type="button">Cập nhật tỷ giá</button>
+    </section>
+
+    <p id="status" role="status"></p>
+    <p class="attribution">Tỷ giá: <a href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer">ExchangeRate-API</a>. Tỷ giá tham khảo, có thể khác tỷ giá thanh toán thực tế.</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

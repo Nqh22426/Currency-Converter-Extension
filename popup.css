@@ -1,0 +1,33 @@
+* { box-sizing: border-box; }
+body { margin: 0; width: 340px; font-family: Arial, sans-serif; color: #17211b; background: #f6f8f7; }
+.panel { padding: 18px; }
+header { display: flex; align-items: center; gap: 12px; margin-bottom: 17px; }
+.logo { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #d9f2e4; color: #087443; font-size: 24px; font-weight: 700; }
+h1 { margin: 0; font-size: 17px; }
+.subtitle { margin: 5px 0 0; color: #68746d; font-size: 12px; }
+.toggle-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 13px 0; border-top: 1px solid #e1e7e3; }
+.toggle-row strong { display: block; font-size: 13px; }
+.toggle-row small { display: block; margin-top: 4px; color: #68746d; font-size: 11px; }
+input[type="checkbox"] { width: 17px; height: 17px; accent-color: #087443; }
+.rate-card { margin-top: 9px; padding: 14px; background: white; border: 1px solid #e1e7e3; border-radius: 12px; }
+.rate-heading { color: #68746d; font-size: 12px; }
+.rate-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px; margin-top: 9px; font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+#rateAmount { width: 58px; min-width: 48px; padding: 3px 5px; border: 1px solid #cbd8d0; border-radius: 6px; background: #fff; color: #17211b; font: inherit; font-weight: 700; }
+#rateCurrency { font-weight: 700; }
+.approx-symbol { color: #68746d; }
+#rateConverted { font-weight: 700; overflow-wrap: anywhere; }
+.updated { margin-top: 7px; color: #68746d; font-size: 10px; line-height: 1.4; }
+button { width: 100%; margin-top: 13px; padding: 9px 12px; border: 0; border-radius: 8px; background: #087443; color: white; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+#status { min-height: 14px; margin: 9px 0 0; color: #a23b2a; font-size: 11px; line-height: 1.4; }
+.footnote, .attribution { margin: 9px 0 0; color: #68746d; font-size: 10px; line-height: 1.5; }
+a { color: #087443; }
+
+
+/* Inline validation uses the same color and size as the former status message. */
+#rateConverted.validation-error {
+  color: #a23b2a;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 400;
+}
