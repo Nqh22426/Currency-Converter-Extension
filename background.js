@@ -3,6 +3,22 @@ const CACHE_KEY = "currencyRatesCache";
 // The open-access rate feed refreshes daily, so keep a successful response for 24 hours.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+// Only keep currencies actually supported by the extension. This keeps the
+// persistent cache and each message sent to tabs much smaller than the full API payload.
+const SUPPORTED_RATE_CODES = [
+  "USD", "VND", "IDR", "TWD", "HKD", "NZD", "AUD", "CAD", "SGD", "BRL",
+  "CNY", "EUR", "GBP", "JPY", "KRW", "THB", "MYR", "PHP", "INR", "CHF",
+  "TRY", "PLN", "SEK", "NOK", "DKK"
+];
+function keepSupportedRates(sourceRates) {
+  const rates = {};
+  for (const code of SUPPORTED_RATE_CODES) {
+    const value = Number(sourceRates?.[code]);
+    if (Number.isFinite(value) && value > 0) rates[code] = value;
+  }
+  return rates;
+}
+
 // Avoid duplicate concurrent API requests when several tabs start together.
 let ratesRequestInFlight = null;
 
@@ -17,13 +33,27 @@ function getRates(forceRefresh = false) {
 async function fetchRates(forceRefresh = false) {
   const stored = await chrome.storage.local.get(CACHE_KEY);
   const cache = stored[CACHE_KEY];
+  const compactRates = keepSupportedRates(cache?.rates);
   const hasUsableCache = Boolean(
-    cache && cache.rates && typeof cache.rates.USD === "number" &&
-    typeof cache.rates.VND === "number"
+    cache && compactRates.USD > 0 && compactRates.VND > 0
   );
+  const compactCache = hasUsableCache
+    ? {
+        rates: compactRates,
+        updatedAt: cache.updatedAt || "",
+        fetchedAt: Number(cache.fetchedAt) || 0
+      }
+    : cache;
 
-  if (!forceRefresh && hasUsableCache && Date.now() - cache.fetchedAt < CACHE_TTL_MS) {
-    return { ...cache, fromCache: true, stale: false };
+  if (!forceRefresh && hasUsableCache && Date.now() - compactCache.fetchedAt < CACHE_TTL_MS) {
+    // Migrate a previously cached full API payload/metadata to the minimal cache once.
+    const oldRateCount = Object.keys(cache.rates || {}).length;
+    const compactRateCount = Object.keys(compactRates).length;
+    const hasLegacyMetadata = "baseCode" in cache || "nextUpdateAt" in cache || "provider" in cache;
+    if (oldRateCount > compactRateCount || hasLegacyMetadata) {
+      await chrome.storage.local.set({ [CACHE_KEY]: compactCache });
+    }
+    return { ...compactCache, fromCache: true, stale: false };
   }
 
   try {
@@ -34,23 +64,21 @@ async function fetchRates(forceRefresh = false) {
     if (data.result !== "success" || !data.rates || data.base_code !== "USD") {
       throw new Error("API không trả về dữ liệu tỷ giá hợp lệ.");
     }
-    if (!Number.isFinite(Number(data.rates.VND)) || !Number.isFinite(Number(data.rates.IDR))) {
-      throw new Error("API thiếu tỷ giá VND hoặc IDR.");
+    const rates = keepSupportedRates(data.rates);
+    if (!(rates.VND > 0) || !(rates.IDR > 0) || !(rates.USD > 0)) {
+      throw new Error("API thiếu tỷ giá VND, IDR hoặc USD.");
     }
 
     const result = {
-      baseCode: data.base_code,
-      rates: data.rates,
+      rates,
       updatedAt: data.time_last_update_utc || new Date().toISOString(),
-      nextUpdateAt: data.time_next_update_utc || "",
-      fetchedAt: Date.now(),
-      provider: "ExchangeRate-API Open Access"
+      fetchedAt: Date.now()
     };
     await chrome.storage.local.set({ [CACHE_KEY]: result });
     return { ...result, fromCache: false, stale: false };
   } catch (error) {
     // Prefer a previously saved rate over breaking page conversion when the API is temporarily down.
-    if (hasUsableCache) return { ...cache, fromCache: true, stale: true, warning: error.message };
+    if (hasUsableCache) return { ...compactCache, fromCache: true, stale: true, warning: error.message };
     throw error;
   }
 }

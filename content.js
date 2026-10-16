@@ -34,8 +34,10 @@
   ];
 
   // Frequently reused lookups and formatters are constructed once per tab.
-  const SOURCE_CURRENCY_RULES = CURRENCY_RULES.filter((rule) => !rule.targetOnly);
-  const CURRENCY_RULE_BY_CODE = new Map(CURRENCY_RULES.map((rule) => [rule.code, rule]));
+  const NO_MINOR_UNIT_CURRENCIES = new Set();
+  for (const rule of CURRENCY_RULES) {
+    if (rule.noMinorUnits) NO_MINOR_UNIT_CURRENCIES.add(rule.code);
+  }
   const IGNORED_TAGS = new Set(["script", "style", "noscript", "textarea", "input", "select", "option", "svg", "canvas"]);
   const UI_SELECTOR = '[data-currency-converter-ui="true"]';
   const MAX_PRICE_TEXT_LENGTH = 120;
@@ -56,19 +58,19 @@
   }
 
   function identifyCurrency(text) {
-    for (const rule of SOURCE_CURRENCY_RULES) {
+    for (const rule of CURRENCY_RULES) {
+      if (rule.targetOnly) continue;
       const match = rule.pattern.exec(text);
-      if (match) return { ...rule, marker: match[0], markerIndex: match.index };
+      if (match) return { rule, marker: match[0], markerIndex: match.index };
     }
     return null;
   }
 
-  function normaliseAmount(raw, currency) {
+  function normaliseAmount(raw, currency, preserveCoefficientDecimal = false) {
     let value = String(raw || "").replace(/[\s'’]/g, "");
     if (!value || !/\d/.test(value)) return null;
 
-    const rule = CURRENCY_RULE_BY_CODE.get(currency);
-    if (rule?.noMinorUnits) {
+    if (NO_MINOR_UNIT_CURRENCIES.has(currency) && !preserveCoefficientDecimal) {
       value = value.replace(/[.,]/g, "");
     } else {
       const lastDot = value.lastIndexOf(".");
@@ -79,13 +81,10 @@
         const hasBothSeparators = lastDot >= 0 && lastComma >= 0;
         if (hasBothSeparators) {
           // The right-most separator is treated as the decimal separator.
-          const decimalSeparator = value[lastSeparator];
           value = value.slice(0, lastSeparator).replace(/[.,]/g, "") + "." + value.slice(lastSeparator + 1).replace(/[.,]/g, "");
-          if (decimalSeparator !== ".") value = value.slice(0, value.indexOf(".")) + "." + value.slice(value.indexOf(".") + 1);
         } else if (digitsAfter === 3 || digitsAfter === 0) {
           value = value.replace(/[.,]/g, "");
         } else {
-          const decimalSeparator = value[lastSeparator];
           const integerPart = value.slice(0, lastSeparator).replace(/[.,]/g, "");
           const fractionalPart = value.slice(lastSeparator + 1).replace(/[.,]/g, "");
           value = `${integerPart}.${fractionalPart}`;
@@ -98,37 +97,115 @@
   }
 
   function getNumberNearMarker(text, currencyMatch) {
-    const before = text.slice(0, currencyMatch.markerIndex);
-    const after = text.slice(currencyMatch.markerIndex + currencyMatch.marker.length);
-    // Prefer the amount after a prefix (Rp 250.000, $25, € 99).
-    const afterMatch = after.match(/^\s*([0-9][0-9.,\s'’]*)/);
-    if (afterMatch && /\d/.test(afterMatch[1])) return afterMatch[1].trim();
+    const markerStart = currencyMatch.markerIndex;
+    const markerEnd = markerStart + currencyMatch.marker.length;
+    const before = text.slice(0, markerStart);
+    const after = text.slice(markerEnd);
 
-    // Otherwise the amount probably precedes a suffix (250.000 Rp, 99 EUR).
+    // Prefix currencies: Rp 250.000, $25, USD 4.67 triệu.
+    const afterMatch = after.match(/^\s*([0-9][0-9.,\s'’]*)/);
+    if (afterMatch && /\d/.test(afterMatch[1])) {
+      const raw = afterMatch[1].trim();
+      const relativeStart = afterMatch[0].indexOf(raw);
+      return { raw, end: markerEnd + relativeStart + raw.length };
+    }
+
+    // Suffix currencies: 250.000 Rp, 4.67 triệu USD.
     const numberPattern = /[0-9][0-9.,\s'’]*/g;
     let lastCandidate = null;
     let candidateMatch;
     while ((candidateMatch = numberPattern.exec(before)) !== null) {
-      lastCandidate = candidateMatch[0];
+      const raw = candidateMatch[0].trim();
+      if (!raw) continue;
+      const relativeStart = candidateMatch.index + candidateMatch[0].indexOf(raw);
+      lastCandidate = {
+        raw,
+        end: relativeStart + raw.length
+      };
     }
-    return lastCandidate ? lastCandidate.trim() : null;
+    return lastCandidate;
   }
 
+  // Common Vietnamese magnitude words used after a number in text prices.
+  // Longest phrases must be matched before their shorter suffixes.
+  const AMOUNT_SCALE_RULES = [
+    { pattern: /^(?:nghìn|ngàn)\s+(?:tỷ|tỉ)(?=$|\s|[.,;:()])/i, multiplier: 1e12 },
+    { pattern: /^triệu\s+(?:tỷ|tỉ)(?=$|\s|[.,;:()])/i, multiplier: 1e15 },
+    { pattern: /^trăm\s+(?:tỷ|tỉ)(?=$|\s|[.,;:()])/i, multiplier: 1e11 },
+    { pattern: /^chục\s+(?:tỷ|tỉ)(?=$|\s|[.,;:()])/i, multiplier: 1e10 },
+    { pattern: /^trăm\s+triệu\b/i, multiplier: 1e8 },
+    { pattern: /^chục\s+triệu\b/i, multiplier: 1e7 },
+    { pattern: /^nghìn\s+triệu\b/i, multiplier: 1e9 },
+    { pattern: /^ngàn\s+triệu\b/i, multiplier: 1e9 },
+    { pattern: /^trăm\s+(?:nghìn|ngàn)\b/i, multiplier: 1e5 },
+    { pattern: /^chục\s+(?:nghìn|ngàn)\b/i, multiplier: 1e4 },
+    { pattern: /^trăm\s+vạn\b/i, multiplier: 1e6 },
+    { pattern: /^chục\s+vạn\b/i, multiplier: 1e5 },
+    { pattern: /^nghìn\s+vạn\b/i, multiplier: 1e7 },
+    { pattern: /^ngàn\s+vạn\b/i, multiplier: 1e7 },
+    { pattern: /^nghìn\b/i, multiplier: 1e3 },
+    { pattern: /^ngàn\b/i, multiplier: 1e3 },
+    { pattern: /^triệu\b/i, multiplier: 1e6 },
+    { pattern: /^(?:tỷ|tỉ)(?=$|\s|[.,;:()])/i, multiplier: 1e9 },
+    { pattern: /^vạn\b/i, multiplier: 1e4 },
+    { pattern: /^trăm\b/i, multiplier: 1e2 },
+    { pattern: /^chục\b/i, multiplier: 1e1 }
+  ];
+
+  function getAmountScaleMultiplier(text, amountMatch, currencyMatch) {
+    if (!amountMatch) return 1;
+
+    // For suffix currency, inspect only the phrase between the amount and
+    // currency marker. For prefix currency, inspect a short phrase following
+    // the amount. This avoids picking a scale word from unrelated page text.
+    const markerStart = currencyMatch.markerIndex;
+    let phrase;
+    if (amountMatch.end <= markerStart) {
+      phrase = text.slice(amountMatch.end, markerStart);
+    } else {
+      phrase = text.slice(amountMatch.end, Math.min(text.length, amountMatch.end + 48));
+    }
+
+    // Ignore opening punctuation such as "(", but require the scale to be the
+    // first meaningful word after the number.
+    phrase = phrase.replace(/^[\s([{,;:–—-]+/, "");
+    for (const rule of AMOUNT_SCALE_RULES) {
+      if (rule.pattern.test(phrase)) return rule.multiplier;
+    }
+    return 1;
+  }
   function parsePrice(text) {
     if (!text || text.length > MAX_PRICE_TEXT_LENGTH) return null;
     const currency = identifyCurrency(text);
     if (!currency) return null;
-    const rawAmount = getNumberNearMarker(text, currency);
-    const amount = normaliseAmount(rawAmount, currency.code);
-    if (!amount) return null;
-    return { currency: currency.code, amount, marker: currency.marker };
+
+    const amountMatch = getNumberNearMarker(text, currency);
+    if (!amountMatch) return null;
+
+    const scaleMultiplier = getAmountScaleMultiplier(text, amountMatch, currency);
+    const coefficient = normaliseAmount(
+      amountMatch.raw,
+      currency.rule.code,
+      scaleMultiplier !== 1
+    );
+    if (!coefficient) return null;
+
+    const amount = coefficient * scaleMultiplier;
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+
+    return {
+      currency: currency.rule.code,
+      amount,
+      marker: currency.marker
+    };
   }
 
   function getRate(fromCode) {
-    if (!ratesFromUsd || !Number.isFinite(ratesFromUsd[fromCode]) || !Number.isFinite(ratesFromUsd.VND)) return null;
+    if (!ratesFromUsd) return null;
     const fromPerUsd = Number(ratesFromUsd[fromCode]);
     const vndPerUsd = Number(ratesFromUsd.VND);
-    if (fromPerUsd <= 0 || vndPerUsd <= 0) return null;
+    if (!Number.isFinite(fromPerUsd) || !Number.isFinite(vndPerUsd) ||
+        fromPerUsd <= 0 || vndPerUsd <= 0) return null;
     return vndPerUsd / fromPerUsd;
   }
 
@@ -161,7 +238,7 @@
         return null;
       }
     }
-    return { text, parsed };
+    return { parsed };
   }
 
   function removeElementLabel(element) {
@@ -273,16 +350,16 @@
     });
   }
 
-  async function loadRates(forceRefresh = false) {
-    const result = await chrome.runtime.sendMessage({ type: "GET_CURRENCY_RATES", forceRefresh });
+  async function loadRates() {
+    const result = await chrome.runtime.sendMessage({ type: "GET_CURRENCY_RATES" });
     if (!result?.ok) throw new Error(result?.error || "Không lấy được tỷ giá.");
     ratesFromUsd = result.rates;
     scan(document.body);
-    return result;
   }
 
   function getPageCurrencySummary() {
-    if (!document.body) return { currency: null, currencies: [], priceCount: 0 };
+    if (!document.body) return { currency: null };
+
     const counts = new Map();
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
       acceptNode(node) {
@@ -297,6 +374,7 @@
     while ((node = walker.nextNode())) {
       const candidate = getPriceCandidate(node);
       if (!candidate) continue;
+
       const parsed = candidate.parsed;
       let item = counts.get(parsed.currency);
       if (!item) {
@@ -304,26 +382,27 @@
         counts.set(parsed.currency, item);
       }
       item.count += 1;
+
       const marker = parsed.marker || parsed.currency;
       item.markers.set(marker, (item.markers.get(marker) || 0) + 1);
     }
 
-    const currencies = [];
-    let priceCount = 0;
+    let mostCommon = null;
     for (const item of counts.values()) {
-      let topMarker = item.code;
-      let topMarkerCount = -1;
-      for (const [marker, count] of item.markers) {
-        if (count > topMarkerCount) {
-          topMarker = marker;
-          topMarkerCount = count;
+      if (mostCommon && item.count <= mostCommon.count) continue;
+
+      let marker = item.code;
+      let markerCount = -1;
+      for (const [candidateMarker, count] of item.markers) {
+        if (count > markerCount) {
+          marker = candidateMarker;
+          markerCount = count;
         }
       }
-      currencies.push({ code: item.code, count: item.count, marker: topMarker });
-      priceCount += item.count;
+      mostCommon = { code: item.code, count: item.count, marker };
     }
-    currencies.sort((a, b) => b.count - a.count);
-    return { currency: currencies[0] || null, currencies, priceCount };
+
+    return { currency: mostCommon };
   }
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -344,16 +423,8 @@
     });
   }
 
-  async function init() {
-    const stored = await chrome.storage.local.get("currencyConverterSettings");
-    settings = { ...DEFAULT_SETTINGS, ...(stored.currencyConverterSettings || {}) };
-    if (settings.enabled) {
-      try {
-        await loadRates();
-      } catch (error) {
-        console.warn("[Currency to VND] Không lấy được tỷ giá:", error.message);
-      }
-    }
+  function startObservingPage() {
+    if (observer || !settings.enabled || !ratesFromUsd || !document.documentElement) return;
 
     observer = new MutationObserver((mutations) => {
       if (!settings.enabled || !ratesFromUsd) return;
@@ -390,7 +461,34 @@
         }
       }
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+
+  function stopObservingPage() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    pendingRoots.clear();
+    // Any already queued frame will see an empty set and exit without scanning.
+  }
+
+  async function init() {
+    const stored = await chrome.storage.local.get("currencyConverterSettings");
+    settings = { ...DEFAULT_SETTINGS, ...(stored.currencyConverterSettings || {}) };
+    if (settings.enabled) {
+      try {
+        await loadRates();
+        startObservingPage();
+      } catch (error) {
+        console.warn("[Currency to VND] Không lấy được tỷ giá:", error.message);
+      }
+    }
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -403,13 +501,19 @@
     if (previousEnabled === settings.enabled) return;
 
     if (!settings.enabled) {
+      stopObservingPage();
       removeConvertedLabels();
       return;
     }
 
-    document.querySelectorAll(UI_SELECTOR).forEach(styleLabel);
-    if (ratesFromUsd) scan(document.body);
-    else loadRates().catch((error) => console.warn("[Currency to VND]", error.message));
+    if (ratesFromUsd) {
+      scan(document.body);
+      startObservingPage();
+    } else {
+      loadRates()
+        .then(startObservingPage)
+        .catch((error) => console.warn("[Currency to VND]", error.message));
+    }
   });
 
   init();
