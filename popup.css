@@ -20,7 +20,7 @@ input[type="checkbox"] { width: 17px; height: 17px; accent-color: #087443; }
 button { width: 100%; margin-top: 13px; padding: 9px 12px; border: 0; border-radius: 8px; background: #087443; color: white; font-weight: 700; cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; }
 #status { min-height: 14px; margin: 9px 0 0; color: #a23b2a; font-size: 11px; line-height: 1.4; }
-.footnote, .attribution { margin: 9px 0 0; color: #68746d; font-size: 10px; line-height: 1.5; }
+.attribution { margin: 9px 0 0; color: #68746d; font-size: 10px; line-height: 1.5; }
 a { color: #087443; }
 
 
@@ -28,6 +28,58 @@ a { color: #087443; }
 #rateConverted.validation-error {
   color: #a23b2a;
   font-size: 11px;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+
+/* Manual mode uses the same popup width and main text size as normal mode. */
+.rate-line.manual-mode {
+  display: grid;
+  grid-template-columns: 48px 100px 8px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 5px;
+  row-gap: 6px;
+}
+.rate-line.manual-mode #rateAmount {
+  width: 48px;
+  min-width: 0;
+  grid-column: 1;
+}
+#manualCurrency {
+  width: 100px;
+  min-width: 0;
+  max-width: 100%;
+  grid-column: 2;
+  padding: 4px 2px;
+  border: 1px solid #cbd8d0;
+  border-radius: 6px;
+  background: #fff;
+  color: #17211b;
+  font: 12px Arial, sans-serif;
+}
+.rate-line.manual-mode .approx-symbol { grid-column: 3; }
+.rate-line.manual-mode #rateConverted {
+  grid-column: 4;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.manual-notice-title {
+  display: block;
+  margin-top: 8px;
+  color: #17211b;
+  font-size: 16px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+[hidden] { display: none !important; }
+
+/* Keep invalid-amount text compact in manual mode, matching regular mode. */
+.rate-line.manual-mode #rateConverted.validation-error {
+  color: #a23b2a;
+  font-size: 10px;
   line-height: 1.4;
   font-weight: 400;
 }

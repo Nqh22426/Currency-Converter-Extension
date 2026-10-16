@@ -26,12 +26,14 @@
 
     <section class="rate-card">
       <div class="rate-heading">Tỉ giá</div>
-      <div class="rate-line" aria-live="polite">
+      <div id="rateLine" class="rate-line" aria-live="polite">
         <input id="rateAmount" type="number" min="0.000001" step="any" value="1" aria-label="Số tiền gốc">
         <span id="rateCurrency">Đang nhận diện...</span>
+        <select id="manualCurrency" aria-label="Chọn tiền tệ gốc" hidden></select>
         <span class="approx-symbol">≈</span>
         <strong id="rateConverted">...</strong>
       </div>
+      <strong id="manualNoticeTitle" class="manual-notice-title" hidden></strong>
       <div id="updated" class="updated"></div>
       <button id="refresh" type="button">Cập nhật tỷ giá</button>
     </section>
