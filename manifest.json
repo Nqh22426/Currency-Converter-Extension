@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Currency to VND",
   "version": "1.2.0",
-  "description": "Tự động quy đổi giá tiền sang VND, hỗ trợ quy đổi thủ công bằng việc người dùng có thể điền số tiền và chọn loại tiền tệ muốn quy đổi.",
+  "description": "Tự động quy đổi giá tiền tệ quốc tế sang VND và hiển thị bên cạnh giá gốc, hỗ trợ thêm tính năng quy đổi tiền tệ thủ công.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
