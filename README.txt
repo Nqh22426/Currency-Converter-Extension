@@ -3,11 +3,14 @@ CURRENCY TO VND
 
 GIỚI THIỆU
 ----------
-Currency to VND là tiện ích mở rộng dành cho Google Chrome, giúp nhận diện giá tiền
-trên trang web và hiển thị giá quy đổi tham khảo sang Đồng Việt Nam (VND) ngay bên
-cạnh giá gốc.
+Currency to VND là tiện ích mở rộng dành cho Google Chrome, giúp nhận diện, quy đổi tiền 
+trên các trang web bán hàng nước ngoài sang Đồng Việt Nam (VND) và hiển thị ngay bên cạnh giá gốc.
 
-TÍNH NĂNG CHÍNH
+
+LỊCH SỬ PHIÊN BẢN
+=================
+
+PHIÊN BẢN 1.0.0
 ---------------
 - Tự động nhận diện các loại tiền tệ được hỗ trợ trên trang web đang mở.
 - Hiển thị giá quy đổi sang VND bên cạnh giá gốc mà không chủ động thay thế giá gốc.
@@ -16,10 +19,6 @@ TÍNH NĂNG CHÍNH
 - Khi nhận diện được một loại tiền tệ khác trên tab đang mở, số tiền nhập trong popup được đặt lại về 1.
 - Lưu tỷ giá đã lấy để hạn chế gọi API liên tục; có thể bấm “Cập nhật tỷ giá” để yêu cầu dữ liệu mới.
 - Hiển thị thời điểm cập nhật dữ liệu tỷ giá. Thời gian do API cung cấp được ghi theo UTC.
-
-
-LỊCH SỬ PHIÊN BẢN
-=================
 
 PHIÊN BẢN 1.2.0
 ---------------
