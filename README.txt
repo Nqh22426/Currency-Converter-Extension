@@ -26,7 +26,7 @@ PHIÊN BẢN 1.2.0
 Các cập nhật so với phiên bản 1.0.0:
 - Bổ sung chế độ quy đổi thủ công:
   Khi extension không đọc được tab hiện tại hoặc không nhận diện được loại tiền tệ,
-  người dùng có thể chọn loại tiền tệ, nhập số tiền và xem kết quả quy đổi sang VND, không cần bật tab khác để tra cứu.
+  người dùng có thể chọn loại tiền tệ, nhập số tiền và xem kết quả quy đổi sang VND, không cần mở tab khác để tra cứu.
 - Bổ sung nhận diện số tiền có từ chỉ bội số phổ biến như nghìn/ngàn, triệu, tỷ/tỉ, vạn 
   và một số cách ghép như chục/trăm nghìn, triệu hoặc tỷ.
   Ví dụ: “4,67 triệu USD” được hiểu là 4.670.000 USD.
